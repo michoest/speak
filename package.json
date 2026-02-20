@@ -1,0 +1,15 @@
+{
+  "name": "speak",
+  "private": true,
+  "workspaces": ["app", "api"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=api\" \"npm run dev --workspace=app\"",
+    "dev:api": "npm run dev --workspace=api",
+    "dev:app": "npm run dev --workspace=app",
+    "build": "npm run build --workspace=app",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
