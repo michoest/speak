@@ -48,6 +48,11 @@
         </v-btn>
       </div>
 
+      <!-- Debug error -->
+      <div v-if="debugError" class="text-caption text-error text-center mb-3 px-2" style="word-break:break-all">
+        {{ debugError }}
+      </div>
+
       <!-- Action buttons -->
       <div class="d-flex gap-3">
         <v-btn variant="tonal" flex="1" class="flex-1" @click="$emit('close')">
@@ -87,18 +92,19 @@ const recording   = ref(false)
 const analyzing   = ref(false)
 const playingNative = ref(false)
 const playingUser   = ref(false)
+const debugError    = ref(null)
 
 let mediaRecorder = null
 let nativeAudioBuffer = null
 let userAudioBuffer = null
 let audioCtx = null
 
-function getAudioContext() {
+async function getAudioContext() {
   if (!audioCtx || audioCtx.state === 'closed') {
     const Ctx = window.AudioContext || window.webkitAudioContext
     audioCtx = new Ctx()
   }
-  if (audioCtx.state === 'suspended') audioCtx.resume()
+  if (audioCtx.state === 'suspended') await audioCtx.resume()
   return audioCtx
 }
 
@@ -112,7 +118,7 @@ watch(() => [props.modelValue, props.nativeAudioB64], async ([isOpen]) => {
 
   if (!props.nativeAudioB64) return
   const bytes = Uint8Array.from(atob(props.nativeAudioB64), c => c.charCodeAt(0))
-  nativeAudioBuffer = await decodeAudio(bytes.buffer)
+  nativeAudioBuffer = await decodeAudio(bytes.buffer, await getAudioContext())
   nativeCurve.value = extractPitchCurve(nativeAudioBuffer)
 })
 
@@ -120,7 +126,7 @@ async function playNative() {
   if (!nativeAudioBuffer) return
   if (playingNative.value) return
   playingNative.value = true
-  const ctx = getAudioContext()
+  const ctx = await getAudioContext()
   const src = ctx.createBufferSource()
   src.buffer = nativeAudioBuffer
   src.connect(ctx.destination)
@@ -131,7 +137,7 @@ async function playNative() {
 async function playUser() {
   if (!userBlob.value || playingUser.value) return
   playingUser.value = true
-  const ctx = getAudioContext()
+  const ctx = await getAudioContext()
   const ab = await userBlob.value.arrayBuffer()
   const buf = await ctx.decodeAudioData(ab)
   const src = ctx.createBufferSource()
@@ -142,33 +148,43 @@ async function playUser() {
 }
 
 async function toggleRecord() {
+  debugError.value = null
   if (recording.value) {
     mediaRecorder?.stop()
     return
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-  const mimeType = ['audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) ?? ''
-  const chunks = []
-  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {})
-  mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
-  mediaRecorder.onstop = async () => {
-    stream.getTracks().forEach(t => t.stop())
-    recording.value = false
-    analyzing.value = true
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const mimeType = ['audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) ?? ''
+    const chunks = []
+    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {})
+    mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
+    mediaRecorder.onstop = async () => {
+      try {
+        stream.getTracks().forEach(t => t.stop())
+        recording.value = false
+        analyzing.value = true
 
-    userBlob.value = new Blob(chunks, { type: mimeType || 'audio/mp4' })
-    userAudioBuffer = await decodeAudio(await userBlob.value.arrayBuffer())
-    userCurve.value = extractPitchCurve(userAudioBuffer)
+        userBlob.value = new Blob(chunks, { type: mimeType || 'audio/mp4' })
+        userAudioBuffer = await decodeAudio(await userBlob.value.arrayBuffer(), await getAudioContext())
+        userCurve.value = extractPitchCurve(userAudioBuffer)
 
-    if (nativeCurve.value.length > 0) {
-      score.value = computePitchSimilarity(nativeCurve.value, userCurve.value)
+        if (nativeCurve.value.length > 0) {
+          score.value = computePitchSimilarity(nativeCurve.value, userCurve.value)
+        }
+      } catch (e) {
+        debugError.value = `[onstop] ${e.name}: ${e.message}`
+      } finally {
+        analyzing.value = false
+      }
     }
-    analyzing.value = false
-  }
 
-  mediaRecorder.start()
-  recording.value = true
+    mediaRecorder.start()
+    recording.value = true
+  } catch (e) {
+    debugError.value = `[record] ${e.name}: ${e.message}`
+  }
 }
 
 const scoreColor = computed(() => {
