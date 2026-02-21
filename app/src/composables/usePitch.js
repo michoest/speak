@@ -49,7 +49,8 @@ function autocorrelation(frame, sampleRate, minHz, maxHz) {
  * Decodes an audio blob or ArrayBuffer into an AudioBuffer.
  */
 export async function decodeAudio(source) {
-  const ctx = new AudioContext()
+  const Ctx = window.AudioContext || window.webkitAudioContext
+  const ctx = new Ctx()
   const ab = source instanceof Blob ? await source.arrayBuffer() : source
   return ctx.decodeAudioData(ab)
 }

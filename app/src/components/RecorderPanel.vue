@@ -94,7 +94,11 @@ let userAudioBuffer = null
 let audioCtx = null
 
 function getAudioContext() {
-  if (!audioCtx || audioCtx.state === 'closed') audioCtx = new AudioContext()
+  if (!audioCtx || audioCtx.state === 'closed') {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    audioCtx = new Ctx()
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume()
   return audioCtx
 }
 
@@ -144,15 +148,16 @@ async function toggleRecord() {
   }
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  const mimeType = ['audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) ?? ''
   const chunks = []
-  mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {})
   mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
   mediaRecorder.onstop = async () => {
     stream.getTracks().forEach(t => t.stop())
     recording.value = false
     analyzing.value = true
 
-    userBlob.value = new Blob(chunks, { type: 'audio/webm' })
+    userBlob.value = new Blob(chunks, { type: mimeType || 'audio/mp4' })
     userAudioBuffer = await decodeAudio(await userBlob.value.arrayBuffer())
     userCurve.value = extractPitchCurve(userAudioBuffer)
 
