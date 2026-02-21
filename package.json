@@ -11,7 +11,7 @@
     "dev:app": "npm run dev --workspace=app",
     "build": "npm run build --workspace=app",
     "install:all": "npm install",
-    "deploy": "npm run build && gh-pages -d app/dist"
+    "deploy": "npm run build && gh-pages -d app/dist --dotfiles"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

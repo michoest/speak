@@ -39,7 +39,8 @@ router.post('/register', async (req, res) => {
 
   res.cookie('session_id', sessionId, {
     httpOnly: true,
-    sameSite: 'lax',
+    secure: true,
+    sameSite: 'none',
     maxAge: SESSION_TTL_SECONDS * 1000,
   })
   res.json({ id: userId, email })
@@ -62,7 +63,8 @@ router.post('/login', async (req, res) => {
 
   res.cookie('session_id', sessionId, {
     httpOnly: true,
-    sameSite: 'lax',
+    secure: true,
+    sameSite: 'none',
     maxAge: SESSION_TTL_SECONDS * 1000,
   })
   res.json({ id: user.id, email: user.email })
