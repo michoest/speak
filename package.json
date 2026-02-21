@@ -1,15 +1,20 @@
 {
   "name": "speak",
   "private": true,
-  "workspaces": ["app", "api"],
+  "workspaces": [
+    "app",
+    "api"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=api\" \"npm run dev --workspace=app\"",
     "dev:api": "npm run dev --workspace=api",
     "dev:app": "npm run dev --workspace=app",
     "build": "npm run build --workspace=app",
-    "install:all": "npm install"
+    "install:all": "npm install",
+    "deploy": "npm run build && gh-pages -d app/dist"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "gh-pages": "^6.3.0"
   }
 }
